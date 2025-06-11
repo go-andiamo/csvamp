@@ -66,6 +66,9 @@ Gandalf,The Grey,24000`
     fmt.Printf("%+v\n", recs)
 }
 ```
+
+[try on go-playground](https://go.dev/play/p/1A3tsYXcEgP)
+
 </details><br>
 
 <details>
@@ -107,6 +110,8 @@ Gandalf,The Grey,24000`
 }
 ```
 
+[try on go-playground](https://go.dev/play/p/p9Lc8mMe5Ic)
+
 </details><br>
 
 <details>
@@ -147,6 +152,8 @@ Gandalf,The Grey,24000`
     fmt.Printf("%+v\n", recs)
 }
 ```
+
+[try on go-playground](https://go.dev/play/p/OvowRsJnCUE)
 
 </details><br>
 
@@ -190,6 +197,8 @@ Gandalf,The Grey,24000`
 }
 ```
 
+[try on go-playground](https://go.dev/play/p/ZVrBXm7-VsP)
+
 </details><br>
 
 <details>
@@ -231,6 +240,8 @@ Gandalf,The Grey,24000`
     fmt.Printf("%+v\n", recs)
 }
 ```
+
+[try on go-playground](https://go.dev/play/p/TBDZCvZBRvv)
 
 </details><br>
 
@@ -301,6 +312,8 @@ Gandalf,The Grey,24000`
 }
 ```
 
+[try on go-playground](https://go.dev/play/p/xcNunZOCcL8)
+
 </details><br>
 
 <details>
@@ -348,6 +361,8 @@ Gandalf,The Grey,24000`
 }
 ```
 
+[try on go-playground](https://go.dev/play/p/AFgn9Dy7YAd)
+
 </details><br>
 
 <details>
@@ -392,6 +407,8 @@ Gandalf,The Grey,24000`
     fmt.Printf("%+v\n", recs)
 }
 ```
+
+[try on go-playground](https://go.dev/play/p/h0gSN5CZ3Df)
 
 </details><br>
 
@@ -438,6 +455,8 @@ Gandalf,The Grey,24000`
 }
 ```
 
+[try on go-playground](https://go.dev/play/p/Vot_iCJv1MX)
+
 </details><br>
 
 <details>
@@ -479,6 +498,8 @@ Gandalf,The Grey,24000`
     }
 }
 ```
+
+[try on go-playground](https://go.dev/play/p/smNxzXmIlel)
 
 </details><br>
 
@@ -534,6 +555,8 @@ Aragorn,Elessar,2931-03-01`
 }
 ```
 
+[try on go-playground](https://go.dev/play/p/sCBMdYV2bM4)
+
 </details><br>
 
 <details>
@@ -577,6 +600,8 @@ Aragorn,Elessar,2931-03-01T00:00:00Z`
     }
 }
 ```
+
+[try on go-playground](https://go.dev/play/p/yr6LrgCfOVj)
 
 </details><br>
 
@@ -625,5 +650,7 @@ Gandalf,The Grey,`
     }
 }
 ```
+
+[try on go-playground](https://go.dev/play/p/Ppw0ZoBZwwp)
 
 </details><br>

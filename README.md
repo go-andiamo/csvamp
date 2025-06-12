@@ -14,7 +14,10 @@ Read CSVs directly into structs.
   - Efficient field setters at read time
 - Support for common field types: `bool`,`int`,`int8`,`int16`,`int32`,`int64`,`uint`,`uint8`,`uint16`,`uint32`,`uint64`,`float32`,`float64`,`string` (and pointers to those types)
 - Support for additional types - when they implement either `csvamp.CsvUnmarshaler` or `encoding.TextUnmarshaler`
+- Map struct fields to CSV field index or header name (using `csv` tag)
 - Adaptable to varying CSVs
+- Post processor option for validation or finalising struct
+- Optional error handler for tracking errors without halting read
 
 ---
 
@@ -652,5 +655,63 @@ Gandalf,The Grey,`
 ```
 
 [try on go-playground](https://go.dev/play/p/Ppw0ZoBZwwp)
+
+</details><br>
+
+<details>
+    <summary><strong>14. Using error handler to track errors</strong></summary>
+
+When using `ReadAll()` (or `Iterate()`) you may not want to halt when an error is encountered... 
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/go-andiamo/csvamp"
+    "strings"
+)
+
+type Record struct {
+    FirstName string
+    LastName  string
+    Age       int
+}
+
+var mapper = csvamp.MustNewMapper[Record]()
+
+func main() {
+    const data = `First name,Last name,Age
+Frodo,Baggins,not a number!
+Samwise,Gamgee,38
+Aragorn,Elessar,not a number!
+Legolas,Greenleaf,2931
+Gandalf,The Grey,24000`
+
+    eh := &errorHandler{}
+    r := mapper.Reader(strings.NewReader(data), nil).WithErrorHandler(eh)
+    recs, err := r.ReadAll()
+    if err != nil {
+        panic(err)
+    }
+    fmt.Printf("%+v\n", recs)
+
+    fmt.Printf("Found %d errors\n", len(eh.errs))
+    for i, err := range eh.errs {
+        fmt.Printf("Line %d: %s\n", eh.lines[i], err)
+    }
+}
+
+type errorHandler struct {
+    errs  []error
+    lines []int
+}
+
+func (eh *errorHandler) Handle(err error, line int) error {
+    eh.errs = append(eh.errs, err)
+    eh.lines = append(eh.lines, line)
+    return nil
+}
+```
 
 </details><br>

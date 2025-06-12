@@ -5,6 +5,7 @@ import (
 	"github.com/go-andiamo/csvamp/csv"
 	"io"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -23,7 +24,9 @@ type Mapper[T any] interface {
 	// Reader returns a reader context for the mapper using the provided io.Reader
 	//
 	// the postProcessor func, if provided, is used to modify (or validate) the struct after it has been read
-	Reader(r io.Reader, postProcessor func(row *T) error) ReaderContext[T]
+	//
+	// the options can be any of csv.Comma, csv.Comment, csv.FieldsPerRecord, csv.LazyQuotes, csv.TrimLeadingSpace or csv.NoHeader
+	Reader(r io.Reader, postProcessor func(row *T) error, options ...any) ReaderContext[T]
 	// ReaderContext returns a reader context for the mapper using the provided csv.Reader
 	//
 	// the postProcessor func, if provided, is used to modify (or validate) the struct after it has been read
@@ -32,18 +35,8 @@ type Mapper[T any] interface {
 	//
 	// Options from the original mapper are preserved unless overridden by the provided options
 	Adapt(clear bool, mappings OverrideMappings, options ...any) (Mapper[T], error)
-}
-
-// ReaderContext is an interface used to actually read structs from a CSV reader
-type ReaderContext[T any] interface {
-	// Read reads the next CSV line as a struct or returns error io.EOF
-	Read() (T, error)
-	// ReadAll reads all CSV lines as structs
-	ReadAll() ([]T, error)
-	// Iterate iterates over CSV lines and calls the provided function with the read struct
-	//
-	// Iteration continues until the end of the CSV or when the provided function returns false or an error
-	Iterate(fn func(T) (bool, error)) error
+	// Mappings returns the current effective struct field to CSV field mappings
+	Mappings() OverrideMappings
 }
 
 // NewMapper creates a new struct to CSV Mapper for the specified generic struct type
@@ -93,8 +86,8 @@ func (m *mapper[T]) setOptions(options ...any) error {
 	return nil
 }
 
-func (m *mapper[T]) Reader(r io.Reader, postProcessor func(row *T) error) ReaderContext[T] {
-	return m.ReaderContext(csv.NewReader(r), postProcessor)
+func (m *mapper[T]) Reader(r io.Reader, postProcessor func(row *T) error, csvOptions ...any) ReaderContext[T] {
+	return m.ReaderContext(csv.NewReader(r, csvOptions...), postProcessor)
 }
 
 func (m *mapper[T]) ReaderContext(r *csv.Reader, postProcessor func(row *T) error) ReaderContext[T] {
@@ -175,6 +168,51 @@ func (m *mapper[T]) Adapt(clear bool, mappings OverrideMappings, options ...any)
 		}
 	}
 	return result, nil
+}
+
+func (m *mapper[T]) Mappings() OverrideMappings {
+	type temp struct {
+		indices []int
+		mapping OverrideMapping
+	}
+	list := make([]temp, 0, len(m.fieldIndices))
+	for k, v := range m.fieldIndices {
+		if fmv, ok := m.fieldMappings[k]; ok {
+			switch mvt := fmv.(type) {
+			case int:
+				list = append(list, temp{
+					indices: v,
+					mapping: OverrideMapping{
+						FieldName:     k,
+						CsvFieldIndex: mvt,
+					},
+				})
+			case string:
+				list = append(list, temp{
+					indices: v,
+					mapping: OverrideMapping{
+						FieldName:    k,
+						CsvFieldName: mvt,
+					},
+				})
+			}
+		}
+	}
+	sort.Slice(list, func(i, j int) (less bool) {
+		a, b := list[i].indices, list[j].indices
+		for x := 0; x < len(a) && x < len(b); x++ {
+			if a[x] != b[x] {
+				less = a[x] < b[x]
+				break
+			}
+		}
+		return less
+	})
+	result := make(OverrideMappings, len(list))
+	for i, v := range list {
+		result[i] = v.mapping
+	}
+	return result
 }
 
 func cloneMap[K comparable, V any](original map[K]V) map[K]V {
@@ -279,105 +317,4 @@ func (m *mapper[T]) visitStructFields(to reflect.Type, fieldPath []int) (err err
 		}
 	}
 	return nil
-}
-
-type readerContext[T any] struct {
-	reader         *csv.Reader
-	mapper         *mapper[T]
-	postProcessor  func(row *T) error
-	csvHeadersRead bool
-	csvHeaders     map[string]int
-	csvHeadersErr  error
-}
-
-func (rc *readerContext[T]) Read() (t T, err error) {
-	var record []string
-	if record, err = rc.reader.Read(); err == nil {
-		if rc.mapper.lineMapper != nil {
-			rc.mapper.lineMapper(&t, rc.reader)
-		}
-		if rc.mapper.rawMapper != nil {
-			rc.mapper.rawMapper(&t, record)
-		}
-		if rc.mapper.rawDataMapper != nil {
-			rc.mapper.rawDataMapper(&t, rc.reader.RawRecord())
-		}
-		for i, v := range record {
-			if fn, ok := rc.mapper.csvFieldIndices[i+1]; ok {
-				if err = fn(&t, v, record); err != nil {
-					return t, err
-				}
-			}
-		}
-		if len(rc.mapper.csvFieldNames) > 0 {
-			var headers map[string]int
-			if headers, err = rc.getCsvHeaders(); err == nil {
-				for name, fn := range rc.mapper.csvFieldNames {
-					if idx, ok := headers[name]; ok {
-						if idx >= 0 && idx < len(record) {
-							if err = fn(&t, record[idx], record); err != nil {
-								return t, err
-							}
-						} else {
-							return t, fmt.Errorf("csv field index %d (for header %q) out of range in record", idx+1, name)
-						}
-					} else if !rc.mapper.ignoreUnknownFieldNames {
-						return t, fmt.Errorf("csv header %q not present", name)
-					}
-				}
-			}
-		}
-		if rc.postProcessor != nil {
-			err = rc.postProcessor(&t)
-		}
-	}
-	return t, err
-}
-
-func (rc *readerContext[T]) getCsvHeaders() (map[string]int, error) {
-	if !rc.csvHeadersRead {
-		rc.csvHeadersRead = true
-		if hdrs, has := rc.reader.Header(); has {
-			rc.csvHeaders = make(map[string]int, len(hdrs))
-			for i, h := range hdrs {
-				rc.csvHeaders[h] = i
-			}
-		} else {
-			rc.csvHeadersErr = fmt.Errorf("csv headers not present")
-		}
-	}
-	return rc.csvHeaders, rc.csvHeadersErr
-}
-
-func (rc *readerContext[T]) ReadAll() (result []T, err error) {
-	for err == nil {
-		var t T
-		t, err = rc.Read()
-		if err != nil {
-			if err == io.EOF {
-				err = nil
-				break
-			}
-			continue
-		}
-		result = append(result, t)
-	}
-	return result, err
-}
-
-func (rc *readerContext[T]) Iterate(fn func(T) (bool, error)) (err error) {
-	contd := true
-	for contd && err == nil {
-		var t T
-		t, err = rc.Read()
-		if err != nil {
-			if err == io.EOF {
-				err = nil
-				break
-			}
-			continue
-		}
-		contd, err = fn(t)
-	}
-	return err
 }

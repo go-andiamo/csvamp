@@ -115,9 +115,6 @@ type Reader struct {
 	// By default, each call to Read returns newly allocated memory owned by the caller.
 	ReuseRecord bool
 
-	// Deprecated: TrailingComma is no longer used.
-	TrailingComma bool
-
 	// NoHeader indicates that the CSV being read does not have a header
 	NoHeader bool
 
@@ -159,11 +156,28 @@ type Reader struct {
 }
 
 // NewReader returns a new Reader that reads from r.
-func NewReader(r io.Reader) *Reader {
-	return &Reader{
+func NewReader(r io.Reader, options ...any) *Reader {
+	result := &Reader{
 		Comma: ',',
 		r:     bufio.NewReader(r),
 	}
+	for _, o := range options {
+		switch opt := o.(type) {
+		case Comma:
+			result.Comma = rune(opt)
+		case Comment:
+			result.Comment = rune(opt)
+		case FieldsPerRecord:
+			result.FieldsPerRecord = int(opt)
+		case LazyQuotes:
+			result.LazyQuotes = bool(opt)
+		case TrimLeadingSpace:
+			result.TrimLeadingSpace = bool(opt)
+		case NoHeader:
+			result.NoHeader = bool(opt)
+		}
+	}
+	return result
 }
 
 // Read reads one record (a slice of fields) from r.
@@ -177,7 +191,6 @@ func NewReader(r io.Reader) *Reader {
 // between multiple calls to Read.
 func (r *Reader) Read() (record []string, err error) {
 	readHeader := !r.NoHeader && !r.headerRead && r.numLine == 0
-	_ = readHeader
 	if r.ReuseRecord {
 		record, err = r.readRecord(r.lastRecord)
 		r.lastRecord = record
@@ -469,4 +482,12 @@ func (r *Reader) RawRecord() []byte {
 // Header returns the headers (and whether header was included)
 func (r *Reader) Header() ([]string, bool) {
 	return r.header, !r.NoHeader
+}
+
+// CurrentLine returns the current line number being read
+func (r *Reader) CurrentLine() int {
+	if len(r.fieldPositions) > 0 {
+		return r.fieldPositions[0].line
+	}
+	return -1
 }

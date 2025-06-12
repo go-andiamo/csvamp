@@ -703,3 +703,32 @@ Aaa,Bbb,Ccc`
 		t.Errorf("raw record: %s", raw)
 	}
 }
+
+func TestReader_CurrentLine(t *testing.T) {
+	const data = `Foo,Bar,Baz
+Aaa,Bbb,Ccc`
+	r := NewReader(strings.NewReader(data))
+	if r.CurrentLine() != -1 {
+		t.Errorf("r.CurrentLine(): %d", r.CurrentLine())
+	}
+	_, err := r.Read()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.CurrentLine() != 2 {
+		t.Errorf("r.CurrentLine(): %d", r.CurrentLine())
+	}
+}
+
+func TestNewReader_WithOptions(t *testing.T) {
+	r := NewReader(strings.NewReader(""),
+		Comma('.'),
+		Comment('$'),
+		FieldsPerRecord(-1),
+		LazyQuotes(true),
+		TrimLeadingSpace(true),
+		NoHeader(true))
+	if r.Comma != '.' || r.Comment != '$' || r.FieldsPerRecord != -1 || !r.LazyQuotes || !r.TrimLeadingSpace || !r.NoHeader {
+		t.Fatal("Options not set")
+	}
+}

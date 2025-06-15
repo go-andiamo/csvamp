@@ -83,6 +83,18 @@ func TestNewMapper(t *testing.T) {
 			_ = MustNewMapper[testStruct]()
 		})
 	})
+	t.Run("With options", func(t *testing.T) {
+		type testStruct struct {
+			Foo string
+		}
+		m, err := NewMapper[testStruct](IgnoreUnknownFieldNames(true), DefaultEmptyValues(true))
+		require.NoError(t, err)
+		require.NotNil(t, m)
+		rm, ok := m.(*mapper[testStruct])
+		require.True(t, ok)
+		require.True(t, rm.ignoreUnknownFieldNames)
+		require.True(t, rm.defaultEmptyValues)
+	})
 }
 
 func TestNewMapper_Errors(t *testing.T) {

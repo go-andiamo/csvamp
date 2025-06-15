@@ -8,6 +8,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"io"
 	"reflect"
 	"strings"
@@ -656,6 +657,32 @@ xxxxxxxxxxxxxxxxxxxxxxxx,yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy,zzzzzzzzzzzzzzzzzzzzzz
 ,,zzzz,wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww,vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx,yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy,zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz,wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww,vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 `, 3))
+}
+
+func TestReader_FieldPos_Panics(t *testing.T) {
+	const data = `Foo,Bar,Baz`
+	r := NewReader(strings.NewReader(data))
+	r.NoHeader = true
+	_, err := r.Read()
+	require.NoError(t, err)
+	require.NotPanics(t, func() {
+		_, _ = r.FieldPos(2)
+	})
+	require.Panics(t, func() {
+		_, _ = r.FieldPos(3)
+	})
+}
+
+func TestReader_FieldQuoted(t *testing.T) {
+	const data = `"Foo",Bar,"Baz"`
+	r := NewReader(strings.NewReader(data))
+	r.NoHeader = true
+	_, err := r.Read()
+	require.NoError(t, err)
+	require.True(t, r.FieldQuoted(0))
+	require.False(t, r.FieldQuoted(1))
+	require.True(t, r.FieldQuoted(2))
+	require.False(t, r.FieldQuoted(3))
 }
 
 func TestReader_RawRecord(t *testing.T) {

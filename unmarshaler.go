@@ -8,3 +8,12 @@ package csvamp
 type CsvUnmarshaler interface {
 	UnmarshalCSV(val string, record []string) error
 }
+
+// CsvQuotedUnmarshaler is the interface implemented by an object that can
+// unmarshal a string CSV field representation of itself.
+//
+// CsvQuotedUnmarshaler is similar to CsvUnmarshaler, except that it informs
+// whether the value string (which may be empty) was quoted
+type CsvQuotedUnmarshaler interface {
+	UnmarshalQuotedCSV(val string, quoted bool, record []string) error
+}

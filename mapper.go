@@ -23,13 +23,13 @@ const (
 type Mapper[T any] interface {
 	// Reader returns a reader context for the mapper using the provided io.Reader
 	//
-	// the postProcessor func, if provided, is used to modify (or validate) the struct after it has been read
+	// the postProcessor func, if provided, can be used to validate (or modify) the struct after it has been read
 	//
 	// the options can be any of csv.Comma, csv.Comment, csv.FieldsPerRecord, csv.LazyQuotes, csv.TrimLeadingSpace or csv.NoHeader
 	Reader(r io.Reader, postProcessor func(row *T) error, options ...any) ReaderContext[T]
 	// ReaderContext returns a reader context for the mapper using the provided csv.Reader
 	//
-	// the postProcessor func, if provided, is used to modify (or validate) the struct after it has been read
+	// the postProcessor func, if provided, can be used to validate (or modify) the struct after it has been read
 	ReaderContext(r *csv.Reader, postProcessor func(row *T) error) ReaderContext[T]
 	// Adapt creates a new Mapper from this mapper with struct field to CSV fields overridden
 	//
@@ -62,11 +62,12 @@ func MustNewMapper[T any](options ...any) Mapper[T] {
 
 type mapper[T any] struct {
 	ignoreUnknownFieldNames bool
+	defaultEmptyValues      bool
 	lineMapper              func(t *T, r *csv.Reader)
 	rawMapper               func(t *T, r []string)
 	rawDataMapper           func(t *T, r []byte)
-	csvFieldIndices         map[int]func(t *T, val string, record []string) error
-	csvFieldNames           map[string]func(t *T, val string, record []string) error
+	csvFieldIndices         map[int]func(t *T, val string, quoted bool, defEmpties bool, record []string) error
+	csvFieldNames           map[string]func(t *T, val string, quoted bool, defEmpties bool, record []string) error
 	fieldMappings           map[string]any // int value is csv index, string value is csv header
 	fieldIndices            map[string][]int
 	fieldIndex              int // used only while inspecting struct fields
@@ -78,6 +79,8 @@ func (m *mapper[T]) setOptions(options ...any) error {
 			switch option := o.(type) {
 			case IgnoreUnknownFieldNames:
 				m.ignoreUnknownFieldNames = bool(option)
+			case DefaultEmptyValues:
+				m.defaultEmptyValues = bool(option)
 			default:
 				return fmt.Errorf("unknown option type: %T", option)
 			}
@@ -105,8 +108,8 @@ func (m *mapper[T]) Adapt(clear bool, mappings OverrideMappings, options ...any)
 		rawMapper:               m.rawMapper,
 		rawDataMapper:           m.rawDataMapper,
 		fieldIndices:            m.fieldIndices,
-		csvFieldIndices:         make(map[int]func(t *T, val string, record []string) error),
-		csvFieldNames:           make(map[string]func(t *T, val string, record []string) error),
+		csvFieldIndices:         make(map[int]func(t *T, val string, quoted bool, defEmpties bool, record []string) error),
+		csvFieldNames:           make(map[string]func(t *T, val string, quoted bool, defEmpties bool, record []string) error),
 		fieldMappings:           make(map[string]any),
 	}
 	if err := result.setOptions(options...); err != nil {
@@ -225,8 +228,8 @@ func cloneMap[K comparable, V any](original map[K]V) map[K]V {
 
 func (m *mapper[T]) mapStruct() error {
 	m.fieldIndex = 1
-	m.csvFieldNames = make(map[string]func(t *T, val string, record []string) error)
-	m.csvFieldIndices = make(map[int]func(t *T, val string, record []string) error)
+	m.csvFieldNames = make(map[string]func(t *T, val string, quoted bool, defEmpties bool, record []string) error)
+	m.csvFieldIndices = make(map[int]func(t *T, val string, quoted bool, defEmpties bool, record []string) error)
 	m.fieldMappings = make(map[string]any)
 	m.fieldIndices = make(map[string][]int)
 	var t T

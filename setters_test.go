@@ -221,12 +221,19 @@ func TestSetterBool(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "true", nil)
+	err = fn(&tc, "true", false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, true, tc.Foo)
 
-	err = fn(&tc, "not a bool", nil)
+	err = fn(&tc, "not a bool", false, false, nil)
 	require.Error(t, err)
+
+	err = fn(&tc, "", false, false, nil)
+	require.Error(t, err)
+	tc.Foo = true
+	err = fn(&tc, "", false, true, nil)
+	require.NoError(t, err)
+	require.False(t, tc.Foo)
 }
 
 func TestSetterPtrBool(t *testing.T) {
@@ -237,14 +244,14 @@ func TestSetterPtrBool(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "true", nil)
+	err = fn(&tc, "true", false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, true, *tc.Foo)
 
-	err = fn(&tc, "not a bool", nil)
+	err = fn(&tc, "not a bool", false, false, nil)
 	require.Error(t, err)
 
-	err = fn(&tc, "", nil)
+	err = fn(&tc, "", false, false, nil)
 	require.NoError(t, err)
 	require.Nil(t, tc.Foo)
 }
@@ -257,12 +264,19 @@ func TestSetterInt(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "1", nil)
+	err = fn(&tc, "1", false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, tc.Foo)
 
-	err = fn(&tc, "not an int", nil)
+	err = fn(&tc, "not an int", false, false, nil)
 	require.Error(t, err)
+
+	err = fn(&tc, "", false, false, nil)
+	require.Error(t, err)
+	tc.Foo = 1
+	err = fn(&tc, "", false, true, nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, tc.Foo)
 }
 
 func TestSetterPtrInt(t *testing.T) {
@@ -273,14 +287,14 @@ func TestSetterPtrInt(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "1", nil)
+	err = fn(&tc, "1", false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, *tc.Foo)
 
-	err = fn(&tc, "not an int", nil)
+	err = fn(&tc, "not an int", false, false, nil)
 	require.Error(t, err)
 
-	err = fn(&tc, "", nil)
+	err = fn(&tc, "", false, false, nil)
 	require.NoError(t, err)
 	require.Nil(t, tc.Foo)
 }
@@ -293,11 +307,11 @@ func TestSetterInt16(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "1", nil)
+	err = fn(&tc, "1", false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, int16(1), tc.Foo)
 
-	err = fn(&tc, "not an int", nil)
+	err = fn(&tc, "not an int", false, false, nil)
 	require.Error(t, err)
 }
 
@@ -309,11 +323,11 @@ func TestSetterPtrInt16(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "1", nil)
+	err = fn(&tc, "1", false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, int16(1), *tc.Foo)
 
-	err = fn(&tc, "not an int", nil)
+	err = fn(&tc, "not an int", false, false, nil)
 	require.Error(t, err)
 }
 
@@ -325,12 +339,19 @@ func TestSetterUint(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "1", nil)
+	err = fn(&tc, "1", false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, uint(1), tc.Foo)
 
-	err = fn(&tc, "not an int", nil)
+	err = fn(&tc, "not an int", false, false, nil)
 	require.Error(t, err)
+
+	err = fn(&tc, "", false, false, nil)
+	require.Error(t, err)
+	tc.Foo = 1
+	err = fn(&tc, "", false, true, nil)
+	require.NoError(t, err)
+	require.Equal(t, uint(0), tc.Foo)
 }
 
 func TestSetterPtrUint(t *testing.T) {
@@ -341,14 +362,14 @@ func TestSetterPtrUint(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "1", nil)
+	err = fn(&tc, "1", false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, uint(1), *tc.Foo)
 
-	err = fn(&tc, "not an int", nil)
+	err = fn(&tc, "not an int", false, false, nil)
 	require.Error(t, err)
 
-	err = fn(&tc, "", nil)
+	err = fn(&tc, "", false, false, nil)
 	require.NoError(t, err)
 	require.Nil(t, tc.Foo)
 }
@@ -361,11 +382,11 @@ func TestSetterUint16(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "1", nil)
+	err = fn(&tc, "1", false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, uint16(1), tc.Foo)
 
-	err = fn(&tc, "not an int", nil)
+	err = fn(&tc, "not an int", false, false, nil)
 	require.Error(t, err)
 }
 
@@ -377,11 +398,11 @@ func TestSetterPtrUint16(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "1", nil)
+	err = fn(&tc, "1", false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, uint16(1), *tc.Foo)
 
-	err = fn(&tc, "not an int", nil)
+	err = fn(&tc, "not an int", false, false, nil)
 	require.Error(t, err)
 }
 
@@ -393,12 +414,19 @@ func TestSetterFloat(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "1.1", nil)
+	err = fn(&tc, "1.1", false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1.1, tc.Foo)
 
-	err = fn(&tc, "not a number", nil)
+	err = fn(&tc, "not a number", false, false, nil)
 	require.Error(t, err)
+
+	err = fn(&tc, "", false, false, nil)
+	require.Error(t, err)
+	tc.Foo = 1
+	err = fn(&tc, "", false, true, nil)
+	require.NoError(t, err)
+	require.Equal(t, float64(0), tc.Foo)
 }
 
 func TestSetterPtrFloat(t *testing.T) {
@@ -409,14 +437,14 @@ func TestSetterPtrFloat(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "1.1", nil)
+	err = fn(&tc, "1.1", false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1.1, *tc.Foo)
 
-	err = fn(&tc, "not a number", nil)
+	err = fn(&tc, "not a number", false, false, nil)
 	require.Error(t, err)
 
-	err = fn(&tc, "", nil)
+	err = fn(&tc, "", false, false, nil)
 	require.NoError(t, err)
 	require.Nil(t, tc.Foo)
 }
@@ -429,7 +457,7 @@ func TestSetterString(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "foo", nil)
+	err = fn(&tc, "foo", false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, "foo", tc.Foo)
 }
@@ -442,13 +470,18 @@ func TestSetterPtrString(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "foo", nil)
+	err = fn(&tc, "foo", false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, "foo", *tc.Foo)
 
-	err = fn(&tc, "", nil)
+	err = fn(&tc, "", false, false, nil)
 	require.NoError(t, err)
 	require.Nil(t, tc.Foo)
+
+	err = fn(&tc, "", true, false, nil)
+	require.NoError(t, err)
+	require.NotNil(t, tc.Foo)
+	require.Equal(t, "", *tc.Foo)
 }
 
 func TestSetterSliceString(t *testing.T) {
@@ -459,11 +492,11 @@ func TestSetterSliceString(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "foo,bar", nil)
+	err = fn(&tc, "foo,bar", false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, []string{"foo", "bar"}, tc.Foo)
 
-	err = fn(&tc, "", nil)
+	err = fn(&tc, "", false, false, nil)
 	require.NoError(t, err)
 	require.Empty(t, tc.Foo)
 }
@@ -476,7 +509,7 @@ func TestSetterUnmarshalCSV(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "foo", nil)
+	err = fn(&tc, "foo", false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, MyString("foo"), tc.Foo)
 }
@@ -489,13 +522,18 @@ func TestSetterPtrUnmarshalCSV(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "foo", nil)
+	err = fn(&tc, "foo", false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, MyString("foo"), *tc.Foo)
 
-	err = fn(&tc, "", nil)
+	err = fn(&tc, "", false, false, nil)
 	require.NoError(t, err)
 	require.Nil(t, tc.Foo)
+
+	err = fn(&tc, "", true, false, nil)
+	require.NoError(t, err)
+	require.NotNil(t, tc.Foo)
+	require.Equal(t, MyString(""), *tc.Foo)
 }
 
 func TestSetterUnmarshalCSV_Error(t *testing.T) {
@@ -506,7 +544,7 @@ func TestSetterUnmarshalCSV_Error(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "foo", nil)
+	err = fn(&tc, "foo", false, false, nil)
 	require.Error(t, err)
 }
 
@@ -518,7 +556,7 @@ func TestSetterPtrUnmarshalCSV_Error(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "foo", nil)
+	err = fn(&tc, "foo", false, false, nil)
 	require.Error(t, err)
 }
 
@@ -530,7 +568,7 @@ func TestSetterUnmarshalText(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "foo", nil)
+	err = fn(&tc, "foo", false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, MyText("foo"), tc.Foo)
 }
@@ -543,13 +581,18 @@ func TestSetterPtrUnmarshalText(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "foo", nil)
+	err = fn(&tc, "foo", false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, MyText("foo"), *tc.Foo)
 
-	err = fn(&tc, "", nil)
+	err = fn(&tc, "", false, false, nil)
 	require.NoError(t, err)
 	require.Nil(t, tc.Foo)
+
+	err = fn(&tc, "", true, false, nil)
+	require.NoError(t, err)
+	require.NotNil(t, tc.Foo)
+	require.Equal(t, MyText(""), *tc.Foo)
 }
 
 func TestSetterUnmarshalText_Errors(t *testing.T) {
@@ -560,7 +603,7 @@ func TestSetterUnmarshalText_Errors(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "foo", nil)
+	err = fn(&tc, "foo", false, false, nil)
 	require.Error(t, err)
 }
 
@@ -572,7 +615,69 @@ func TestSetterPtrUnmarshalText_Errors(t *testing.T) {
 	fld := reflect.TypeOf(tc).Field(0)
 	fn, err := buildSetter[testStruct]([]int{0}, fld)
 	require.NoError(t, err)
-	err = fn(&tc, "foo", nil)
+	err = fn(&tc, "foo", false, false, nil)
+	require.Error(t, err)
+}
+
+func TestSetterUnmarshalQuotedCSV(t *testing.T) {
+	type testStruct struct {
+		Foo MyQuotedString
+	}
+	tc := testStruct{}
+	fld := reflect.TypeOf(tc).Field(0)
+	fn, err := buildSetter[testStruct]([]int{0}, fld)
+	require.NoError(t, err)
+	err = fn(&tc, "foo", false, false, nil)
+	require.NoError(t, err)
+	require.Equal(t, MyQuotedString("foo"), tc.Foo)
+	err = fn(&tc, "foo", true, false, nil)
+	require.NoError(t, err)
+	require.Equal(t, MyQuotedString("\"foo\""), tc.Foo)
+}
+
+func TestSetterPtrUnmarshalQuotedCSV(t *testing.T) {
+	type testStruct struct {
+		Foo *MyQuotedString
+	}
+	tc := testStruct{}
+	fld := reflect.TypeOf(tc).Field(0)
+	fn, err := buildSetter[testStruct]([]int{0}, fld)
+	require.NoError(t, err)
+	err = fn(&tc, "foo", false, false, nil)
+	require.NoError(t, err)
+	require.Equal(t, MyQuotedString("foo"), *tc.Foo)
+
+	err = fn(&tc, "", false, false, nil)
+	require.NoError(t, err)
+	require.Nil(t, tc.Foo)
+
+	err = fn(&tc, "", true, false, nil)
+	require.NoError(t, err)
+	require.NotNil(t, tc.Foo)
+	require.Equal(t, MyQuotedString(`""`), *tc.Foo)
+}
+
+func TestSetterUnmarshalQuotedCSV_Error(t *testing.T) {
+	type testStruct struct {
+		Foo MyBadQuotedString
+	}
+	tc := testStruct{}
+	fld := reflect.TypeOf(tc).Field(0)
+	fn, err := buildSetter[testStruct]([]int{0}, fld)
+	require.NoError(t, err)
+	err = fn(&tc, "foo", false, false, nil)
+	require.Error(t, err)
+}
+
+func TestSetterPtrUnmarshalQuotedCSV_Error(t *testing.T) {
+	type testStruct struct {
+		Foo *MyBadQuotedString
+	}
+	tc := testStruct{}
+	fld := reflect.TypeOf(tc).Field(0)
+	fn, err := buildSetter[testStruct]([]int{0}, fld)
+	require.NoError(t, err)
+	err = fn(&tc, "foo", false, false, nil)
 	require.Error(t, err)
 }
 
@@ -599,5 +704,22 @@ func (my *MyText) UnmarshalText(text []byte) error {
 type MyBadText string
 
 func (my *MyBadText) UnmarshalText(text []byte) error {
+	return errors.New("fooey")
+}
+
+type MyQuotedString string
+
+func (my *MyQuotedString) UnmarshalQuotedCSV(s string, quoted bool, record []string) error {
+	if quoted {
+		*my = MyQuotedString(`"` + s + `"`)
+	} else {
+		*my = MyQuotedString(s)
+	}
+	return nil
+}
+
+type MyBadQuotedString string
+
+func (my *MyBadQuotedString) UnmarshalQuotedCSV(s string, quoted bool, record []string) error {
 	return errors.New("fooey")
 }

@@ -224,6 +224,7 @@ Ddd,Eee,Fff`
 	})
 	_, err = ctx.ReadAll()
 	require.Error(t, err)
+	require.IsType(t, &ReaderError{}, err)
 }
 
 func TestReaderContext_ReadAll_WithErrorHandler(t *testing.T) {
@@ -305,6 +306,11 @@ Ddd,Eee,Fff`
 		return true, nil
 	})
 	require.Error(t, err)
+	require.IsType(t, &ReaderError{}, err)
+	require.Contains(t, err.Error(), "fooey")
+	err = errors.Unwrap(err)
+	require.Error(t, err)
+	require.Equal(t, "fooey", err.Error())
 }
 
 func TestReaderContext_Iterate_WithErrorHandler(t *testing.T) {
@@ -443,6 +449,31 @@ Aaa,"Bbb"`
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "csv headers not present")
 	})
+}
+
+func TestReaderContext_SupplyHeaders(t *testing.T) {
+	const data = `"Aaa","Bbb",Ccc
+Ddd,Eee,Fff`
+	type testStruct struct {
+		Foo string `csv:"foo"`
+		Bar string `csv:"bar"`
+		Baz string `csv:"baz"`
+	}
+	m, err := NewMapper[testStruct]()
+	require.NoError(t, err)
+	require.NotNil(t, m)
+
+	r := m.Reader(strings.NewReader(data), nil, csv.NoHeader(true)).
+		SupplyHeaders([]string{"bar", "baz", "foo"})
+	result, err := r.ReadAll()
+	require.NoError(t, err)
+	require.Len(t, result, 2)
+	require.Equal(t, "Ccc", result[0].Foo)
+	require.Equal(t, "Aaa", result[0].Bar)
+	require.Equal(t, "Bbb", result[0].Baz)
+	require.Equal(t, "Fff", result[1].Foo)
+	require.Equal(t, "Ddd", result[1].Bar)
+	require.Equal(t, "Eee", result[1].Baz)
 }
 
 type testErrorHandler struct {

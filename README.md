@@ -12,8 +12,11 @@ Read CSVs directly into structs.
 - Minimal reflection use
   - Field reflection only at mapper create time
   - Efficient field setters at read time
-- Support for common field types: `bool`,`int`,`int8`,`int16`,`int32`,`int64`,`uint`,`uint8`,`uint16`,`uint32`,`uint64`,`float32`,`float64`,`string` (and pointers to those types)
+- Support for common field types: `bool`,`int`,`int8`,`int16`,`int32`,`int64`,`uint`,`uint8`,`uint16`,`uint32`,`uint64`,`float32`,`float64`,`string`
+  - and pointers to those types
+  - quoted detection on string pointers
 - Support for additional types - when they implement either `csvamp.CsvUnmarshaler` or `encoding.TextUnmarshaler`
+- Support for embedded structs (but not nested structs)
 - Map struct fields to CSV field index or header name (using `csv` tag)
 - Adaptable to varying CSVs
 - Post processor option for validation or finalising struct
@@ -711,6 +714,88 @@ func (eh *errorHandler) Handle(err error, line int) error {
     eh.errs = append(eh.errs, err)
     eh.lines = append(eh.lines, line)
     return nil
+}
+```
+
+</details><br>
+
+<details>
+    <summary><strong>15. Manually supply CSV headers</strong></summary>
+
+Sometimes, incoming CSV won't have a header line - but your struct fields are mapped to header names.  This can be handled by supplying the headers...
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/go-andiamo/csvamp"
+    "github.com/go-andiamo/csvamp/csv"
+    "strings"
+)
+
+type Record struct {
+    Age       int    `csv:"Age"`
+    LastName  string `csv:"Last name"`
+    FirstName string `csv:"First name"`
+}
+
+var mapper = csvamp.MustNewMapper[Record]()
+
+func main() {
+    const data = `Frodo,Baggins,50
+Samwise,Gamgee,38
+Aragorn,Elessar,87
+Legolas,Greenleaf,2931
+Gandalf,The Grey,24000`
+
+    // csv.NoHeader(true) indicates to the reader that the CSV has no header line...
+    r := mapper.Reader(strings.NewReader(data), nil, csv.NoHeader(true)).
+        SupplyHeaders([]string{"First name", "Last name", "Age"})
+    recs, err := r.ReadAll()
+    if err != nil {
+        panic(err)
+    }
+    fmt.Printf("%+v\n", recs)
+}
+```
+
+</details><br>
+
+<details>
+    <summary><strong>16. Quoted detection on string pointer fields</strong></summary>
+
+Using string pointer fields determines whether the CSV field was quoted or un-quoted for empty string or nil...
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/go-andiamo/csvamp"
+    "strings"
+)
+
+type Record struct {
+    Name *string
+    Age  int
+}
+
+var mapper = csvamp.MustNewMapper[Record]()
+
+func main() {
+    const data = `Name,Age
+"",50
+,38`
+
+    r := mapper.Reader(strings.NewReader(data), nil)
+    recs, err := r.ReadAll()
+    if err != nil {
+        panic(err)
+    }
+    // Name for first record should be pointer to empty string
+    // Name for second record should be nil
+    fmt.Printf("%+v\n", recs)
 }
 ```
 

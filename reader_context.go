@@ -6,7 +6,7 @@ import (
 	"io"
 )
 
-// ReaderContext is an interface used to actually read structs from a CSV reader
+// ReaderContext is the interface used to actually read structs from CSV
 //
 // A reader context is obtained from Mapper.Reader or Mapper.ReaderContext
 type ReaderContext[T any] interface {
@@ -22,11 +22,15 @@ type ReaderContext[T any] interface {
 	//
 	// Setting an error handler means that errors are reported but don't necessarily halt further reading
 	WithErrorHandler(eh ErrorHandler) ReaderContext[T]
+	// SupplyHeaders enables CSV headers to be manually supplied
+	//
+	// Sometimes your csv may not have headers, or you may have already read (and normalised) them
+	SupplyHeaders(headers []string) ReaderContext[T]
 }
 
 // ErrorHandler is an interface that can be used with ReaderContext.WithErrorHandler
 type ErrorHandler interface {
-	// Handle handles the error - if it returns the error, the further processing stops
+	// Handle handles the error - if it returns the error, then further processing stops
 	Handle(err error, line int) error
 }
 
@@ -54,7 +58,7 @@ func (rc *readerContext[T]) Read() (t T, err error) {
 		}
 		for i, v := range record {
 			if fn, ok := rc.mapper.csvFieldIndices[i+1]; ok {
-				if err = fn(&t, v, record); err != nil {
+				if err = fn(&t, v, rc.reader.FieldQuoted(i), rc.mapper.defaultEmptyValues, record); err != nil {
 					return t, err
 				}
 			}
@@ -65,7 +69,7 @@ func (rc *readerContext[T]) Read() (t T, err error) {
 				for name, fn := range rc.mapper.csvFieldNames {
 					if idx, ok := headers[name]; ok {
 						if idx >= 0 && idx < len(record) {
-							if err = fn(&t, record[idx], record); err != nil {
+							if err = fn(&t, record[idx], rc.reader.FieldQuoted(idx), rc.mapper.defaultEmptyValues, record); err != nil {
 								return t, err
 							}
 						} else {
@@ -82,21 +86,6 @@ func (rc *readerContext[T]) Read() (t T, err error) {
 		}
 	}
 	return t, err
-}
-
-func (rc *readerContext[T]) getCsvHeaders() (map[string]int, error) {
-	if !rc.csvHeadersRead {
-		rc.csvHeadersRead = true
-		if hdrs, has := rc.reader.Header(); has {
-			rc.csvHeaders = make(map[string]int, len(hdrs))
-			for i, h := range hdrs {
-				rc.csvHeaders[h] = i
-			}
-		} else {
-			rc.csvHeadersErr = fmt.Errorf("csv headers not present")
-		}
-	}
-	return rc.csvHeaders, rc.csvHeadersErr
 }
 
 func (rc *readerContext[T]) ReadAll() (result []T, err error) {
@@ -140,11 +129,53 @@ func (rc *readerContext[T]) WithErrorHandler(eh ErrorHandler) ReaderContext[T] {
 	return rc
 }
 
+func (rc *readerContext[T]) SupplyHeaders(headers []string) ReaderContext[T] {
+	rc.csvHeadersRead = true
+	rc.csvHeadersErr = nil
+	rc.csvHeaders = make(map[string]int, len(headers))
+	for i, h := range headers {
+		rc.csvHeaders[h] = i
+	}
+	return rc
+}
+
+func (rc *readerContext[T]) getCsvHeaders() (map[string]int, error) {
+	if !rc.csvHeadersRead {
+		rc.csvHeadersRead = true
+		if hdrs, has := rc.reader.Header(); has {
+			rc.csvHeaders = make(map[string]int, len(hdrs))
+			for i, h := range hdrs {
+				rc.csvHeaders[h] = i
+			}
+		} else {
+			rc.csvHeadersErr = fmt.Errorf("csv headers not present")
+		}
+	}
+	return rc.csvHeaders, rc.csvHeadersErr
+}
+
 func (rc *readerContext[T]) handleError(err error) error {
 	if err == nil {
 		return nil
 	} else if rc.errorHandler == nil {
-		return err
+		return &ReaderError{
+			Line: rc.reader.CurrentLine(),
+			Err:  err,
+		}
 	}
 	return rc.errorHandler.Handle(err, rc.reader.CurrentLine())
+}
+
+// ReaderError is the wrapped error returned from ReaderContext.ReadAll / ReaderContext.Iterate
+type ReaderError struct {
+	Line int
+	Err  error
+}
+
+func (e *ReaderError) Error() string {
+	return fmt.Sprintf("line %d: %v", e.Line, e.Err)
+}
+
+func (e *ReaderError) Unwrap() error {
+	return e.Err
 }

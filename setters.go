@@ -10,15 +10,17 @@ import (
 
 var unmarshalerCsvType = reflect.TypeOf((*CsvUnmarshaler)(nil)).Elem()
 
+var unmarshalerQuotedCsvType = reflect.TypeOf((*CsvQuotedUnmarshaler)(nil)).Elem()
+
 var unmarshalerTextType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
 
-func buildSetter[T any](currentPath []int, fld reflect.StructField) (func(t *T, val string, record []string) error, error) {
+func buildSetter[T any](currentPath []int, fld reflect.StructField) (func(t *T, val string, quoted bool, defEmpties bool, record []string) error, error) {
 	fk := fld.Type.Kind()
 	if fk == reflect.Ptr {
 		return buildPtrSetter[T](currentPath, fld)
 	}
 	if reflect.PointerTo(fld.Type).Implements(unmarshalerCsvType) {
-		return func(t *T, val string, record []string) error {
+		return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
 			v := reflect.ValueOf(t).Elem().FieldByIndex(currentPath)
 			// create pointer to the field...
 			ptr := reflect.New(fld.Type)
@@ -31,8 +33,22 @@ func buildSetter[T any](currentPath []int, fld reflect.StructField) (func(t *T, 
 			v.Set(ptr.Elem())
 			return nil
 		}, nil
+	} else if reflect.PointerTo(fld.Type).Implements(unmarshalerQuotedCsvType) {
+		return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
+			v := reflect.ValueOf(t).Elem().FieldByIndex(currentPath)
+			// create pointer to the field...
+			ptr := reflect.New(fld.Type)
+			// call UnmarshalQuotedCSV on the pointer...
+			u := ptr.Interface().(CsvQuotedUnmarshaler)
+			if err := u.UnmarshalQuotedCSV(val, quoted, record); err != nil {
+				return err
+			}
+			// assign dereferenced result back to field...
+			v.Set(ptr.Elem())
+			return nil
+		}, nil
 	} else if reflect.PointerTo(fld.Type).Implements(unmarshalerTextType) {
-		return func(t *T, val string, record []string) error {
+		return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
 			v := reflect.ValueOf(t).Elem().FieldByIndex(currentPath)
 			// create pointer to the field...
 			ptr := reflect.New(fld.Type)
@@ -83,9 +99,11 @@ func buildSetter[T any](currentPath []int, fld reflect.StructField) (func(t *T, 
 	return nil, fmt.Errorf("struct field unsupported type: %s", fk.String())
 }
 
-func setterBool[T any](currentPath []int) func(t *T, val string, record []string) error {
-	return func(t *T, val string, record []string) error {
-		if b, err := strconv.ParseBool(val); err != nil {
+func setterBool[T any](currentPath []int) func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
+	return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
+		if defEmpties && val == "" {
+			reflect.ValueOf(t).Elem().FieldByIndex(currentPath).SetBool(false)
+		} else if b, err := strconv.ParseBool(val); err != nil {
 			return fmt.Errorf("cannot convert value %q to bool", val)
 		} else {
 			reflect.ValueOf(t).Elem().FieldByIndex(currentPath).SetBool(b)
@@ -94,9 +112,11 @@ func setterBool[T any](currentPath []int) func(t *T, val string, record []string
 	}
 }
 
-func setterInt[T any](currentPath []int, bitSize int) func(t *T, val string, record []string) error {
-	return func(t *T, val string, record []string) error {
-		if v, err := strconv.ParseInt(val, 10, bitSize); err != nil {
+func setterInt[T any](currentPath []int, bitSize int) func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
+	return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
+		if defEmpties && val == "" {
+			reflect.ValueOf(t).Elem().FieldByIndex(currentPath).SetInt(0)
+		} else if v, err := strconv.ParseInt(val, 10, bitSize); err != nil {
 			if bitSize == 0 {
 				return fmt.Errorf("cannot convert value %q to int", val)
 			} else {
@@ -109,9 +129,11 @@ func setterInt[T any](currentPath []int, bitSize int) func(t *T, val string, rec
 	}
 }
 
-func setterUint[T any](currentPath []int, bitSize int) func(t *T, val string, record []string) error {
-	return func(t *T, val string, record []string) error {
-		if v, err := strconv.ParseUint(val, 10, bitSize); err != nil {
+func setterUint[T any](currentPath []int, bitSize int) func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
+	return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
+		if defEmpties && val == "" {
+			reflect.ValueOf(t).Elem().FieldByIndex(currentPath).SetUint(0)
+		} else if v, err := strconv.ParseUint(val, 10, bitSize); err != nil {
 			if bitSize == 0 {
 				return fmt.Errorf("cannot convert value %q to uint", val)
 			} else {
@@ -124,9 +146,11 @@ func setterUint[T any](currentPath []int, bitSize int) func(t *T, val string, re
 	}
 }
 
-func setterFloat[T any](currentPath []int, bitSize int) func(t *T, val string, record []string) error {
-	return func(t *T, val string, record []string) error {
-		if v, err := strconv.ParseFloat(val, bitSize); err != nil {
+func setterFloat[T any](currentPath []int, bitSize int) func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
+	return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
+		if defEmpties && val == "" {
+			reflect.ValueOf(t).Elem().FieldByIndex(currentPath).SetFloat(0)
+		} else if v, err := strconv.ParseFloat(val, bitSize); err != nil {
 			return fmt.Errorf("cannot convert value %q to float%d", val, bitSize)
 		} else {
 			reflect.ValueOf(t).Elem().FieldByIndex(currentPath).SetFloat(v)
@@ -135,15 +159,15 @@ func setterFloat[T any](currentPath []int, bitSize int) func(t *T, val string, r
 	}
 }
 
-func setterString[T any](currentPath []int) func(t *T, val string, record []string) error {
-	return func(t *T, val string, record []string) error {
+func setterString[T any](currentPath []int) func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
+	return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
 		reflect.ValueOf(t).Elem().FieldByIndex(currentPath).SetString(val)
 		return nil
 	}
 }
 
-func setterSliceString[T any](currentPath []int) func(t *T, val string, record []string) error {
-	return func(t *T, val string, record []string) error {
+func setterSliceString[T any](currentPath []int) func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
+	return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
 		if val == "" {
 			reflect.ValueOf(t).Elem().FieldByIndex(currentPath).Set(reflect.ValueOf([]string{}))
 		} else {
@@ -153,11 +177,11 @@ func setterSliceString[T any](currentPath []int) func(t *T, val string, record [
 	}
 }
 
-func buildPtrSetter[T any](currentPath []int, fld reflect.StructField) (func(t *T, val string, record []string) error, error) {
+func buildPtrSetter[T any](currentPath []int, fld reflect.StructField) (func(t *T, val string, quoted bool, defEmpties bool, record []string) error, error) {
 	if fld.Type.Implements(unmarshalerCsvType) {
-		return func(t *T, val string, record []string) error {
+		return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
 			v := reflect.ValueOf(t).Elem().FieldByIndex(currentPath)
-			if val == "" {
+			if val == "" && !quoted {
 				v.Set(reflect.Zero(v.Type()))
 				return nil
 			}
@@ -167,10 +191,23 @@ func buildPtrSetter[T any](currentPath []int, fld reflect.StructField) (func(t *
 			u := v.Interface().(CsvUnmarshaler)
 			return u.UnmarshalCSV(val, record)
 		}, nil
-	} else if fld.Type.Implements(unmarshalerTextType) {
-		return func(t *T, val string, record []string) error {
+	} else if fld.Type.Implements(unmarshalerQuotedCsvType) {
+		return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
 			v := reflect.ValueOf(t).Elem().FieldByIndex(currentPath)
-			if val == "" {
+			if val == "" && !quoted {
+				v.Set(reflect.Zero(v.Type()))
+				return nil
+			}
+			if v.IsNil() {
+				v.Set(reflect.New(v.Type().Elem()))
+			}
+			u := v.Interface().(CsvQuotedUnmarshaler)
+			return u.UnmarshalQuotedCSV(val, quoted, record)
+		}, nil
+	} else if fld.Type.Implements(unmarshalerTextType) {
+		return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
+			v := reflect.ValueOf(t).Elem().FieldByIndex(currentPath)
+			if val == "" && !quoted {
 				v.Set(reflect.Zero(v.Type()))
 				return nil
 			}
@@ -215,8 +252,8 @@ func buildPtrSetter[T any](currentPath []int, fld reflect.StructField) (func(t *
 	return nil, fmt.Errorf("struct field unsupported type: *%s", fk.String())
 }
 
-func setterPtrBool[T any](currentPath []int) func(t *T, val string, record []string) error {
-	return func(t *T, val string, record []string) error {
+func setterPtrBool[T any](currentPath []int) func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
+	return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
 		v := reflect.ValueOf(t).Elem().FieldByIndex(currentPath)
 		if val == "" {
 			v.Set(reflect.Zero(v.Type()))
@@ -233,8 +270,8 @@ func setterPtrBool[T any](currentPath []int) func(t *T, val string, record []str
 	}
 }
 
-func setterPtrInt[T any](currentPath []int, bitSize int) func(t *T, val string, record []string) error {
-	return func(t *T, val string, record []string) error {
+func setterPtrInt[T any](currentPath []int, bitSize int) func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
+	return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
 		v := reflect.ValueOf(t).Elem().FieldByIndex(currentPath)
 		if val == "" {
 			v.Set(reflect.Zero(v.Type()))
@@ -255,8 +292,8 @@ func setterPtrInt[T any](currentPath []int, bitSize int) func(t *T, val string, 
 	}
 }
 
-func setterPtrUint[T any](currentPath []int, bitSize int) func(t *T, val string, record []string) error {
-	return func(t *T, val string, record []string) error {
+func setterPtrUint[T any](currentPath []int, bitSize int) func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
+	return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
 		v := reflect.ValueOf(t).Elem().FieldByIndex(currentPath)
 		if val == "" {
 			v.Set(reflect.Zero(v.Type()))
@@ -277,8 +314,8 @@ func setterPtrUint[T any](currentPath []int, bitSize int) func(t *T, val string,
 	}
 }
 
-func setterPtrFloat[T any](currentPath []int, bitSize int) func(t *T, val string, record []string) error {
-	return func(t *T, val string, record []string) error {
+func setterPtrFloat[T any](currentPath []int, bitSize int) func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
+	return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
 		v := reflect.ValueOf(t).Elem().FieldByIndex(currentPath)
 		if val == "" {
 			v.Set(reflect.Zero(v.Type()))
@@ -295,10 +332,10 @@ func setterPtrFloat[T any](currentPath []int, bitSize int) func(t *T, val string
 	}
 }
 
-func setterPtrString[T any](currentPath []int) func(t *T, val string, record []string) error {
-	return func(t *T, val string, record []string) error {
+func setterPtrString[T any](currentPath []int) func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
+	return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
 		v := reflect.ValueOf(t).Elem().FieldByIndex(currentPath)
-		if val == "" {
+		if val == "" && !quoted {
 			v.Set(reflect.Zero(v.Type()))
 			return nil
 		}

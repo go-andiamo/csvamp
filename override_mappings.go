@@ -1,5 +1,6 @@
 package csvamp
 
+// OverrideMappings is passed to Mapper.Adapt to override field to CSV mappings
 type OverrideMappings []OverrideMapping
 
 type OverrideMapping struct {

@@ -224,6 +224,16 @@ func (r *Reader) FieldPos(field int) (line, column int) {
 	return p.line, p.col
 }
 
+// FieldQuoted returns whether the specified field index was quoted
+//
+// If the field index is out-of-bounds, always returns false
+func (r *Reader) FieldQuoted(field int) bool {
+	if field < 0 || field >= len(r.fieldPositions) {
+		return false
+	}
+	return r.fieldPositions[field].quoted
+}
+
 // InputOffset returns the input stream byte offset of the current reader
 // position. The offset gives the location of the end of the most recently
 // read row and the beginning of the next row.
@@ -234,6 +244,7 @@ func (r *Reader) InputOffset() int64 {
 // pos holds the position of a field in the current line.
 type position struct {
 	line, col int
+	quoted    bool
 }
 
 // ReadAll reads all the remaining records from r.
@@ -347,6 +358,7 @@ parseField:
 			pos.col += i
 		}
 		if len(line) == 0 || line[0] != '"' {
+			pos.quoted = false
 			// Non-quoted string field
 			i := bytes.IndexRune(line, r.Comma)
 			field := line
@@ -375,6 +387,7 @@ parseField:
 		} else {
 			// Quoted string field
 			fieldPos := pos
+			fieldPos.quoted = true
 			line = line[quoteLen:]
 			pos.col += quoteLen
 			for {

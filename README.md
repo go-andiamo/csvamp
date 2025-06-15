@@ -717,6 +717,8 @@ func (eh *errorHandler) Handle(err error, line int) error {
 }
 ```
 
+[try on go-playground](https://go.dev/play/p/QLNoDtewIRa)
+
 </details><br>
 
 <details>
@@ -760,6 +762,8 @@ Gandalf,The Grey,24000`
 }
 ```
 
+[try on go-playground](https://go.dev/play/p/bgTZ12NM11x)
+
 </details><br>
 
 <details>
@@ -798,5 +802,7 @@ func main() {
     fmt.Printf("%+v\n", recs)
 }
 ```
+
+[try on go-playground](https://go.dev/play/p/AIbfIS90PUv)
 
 </details><br>

@@ -2,8 +2,24 @@ package csvamp
 
 import (
 	"github.com/stretchr/testify/require"
+	"strings"
 	"testing"
 )
+
+type Unmarshalable struct {
+	FirstPart  string
+	SecondPart string
+}
+
+func (u *Unmarshalable) UnmarshalCSV(val string, record []string) error {
+	if parts := strings.Split(val, "|"); len(parts) > 1 {
+		u.FirstPart = parts[0]
+		u.SecondPart = parts[1]
+	} else {
+		u.FirstPart = val
+	}
+	return nil
+}
 
 func TestNewMapper(t *testing.T) {
 	t.Run("Regular", func(t *testing.T) {
@@ -78,6 +94,75 @@ func TestNewMapper(t *testing.T) {
 		require.Len(t, om, 2)
 		require.Equal(t, OverrideMapping{FieldName: "Foo", CsvFieldIndex: 1}, om[0])
 		require.Equal(t, OverrideMapping{FieldName: "Bar", CsvFieldName: "bar"}, om[1])
+
+		require.NotPanics(t, func() {
+			_ = MustNewMapper[testStruct]()
+		})
+	})
+	t.Run("Nested struct", func(t *testing.T) {
+		type Nested struct {
+			Line       int `csv:"[line]"`
+			unexported string
+			Bar        string `csv:"bar"`
+		}
+		type testStruct struct {
+			Raw        []string `csv:"[raw]"`
+			RawData    []byte   `csv:"[rawData]"`
+			unexported string
+			Foo        string
+			Nested     Nested
+		}
+		m, err := NewMapper[testStruct]()
+		require.NoError(t, err)
+		require.NotNil(t, m)
+		rm, ok := m.(*mapper[testStruct])
+		require.True(t, ok)
+		require.NotNil(t, rm.lineMapper)
+		require.NotNil(t, rm.rawMapper)
+		require.NotNil(t, rm.rawDataMapper)
+		require.Len(t, rm.fieldMappings, 2)
+		require.Equal(t, 1, rm.fieldMappings["Foo"])
+		require.Equal(t, "bar", rm.fieldMappings["Nested.Bar"])
+		require.Len(t, rm.fieldIndices, 5)
+		require.Equal(t, []int{0}, rm.fieldIndices["Raw"])
+		require.Equal(t, []int{1}, rm.fieldIndices["RawData"])
+		require.Equal(t, []int{3}, rm.fieldIndices["Foo"])
+		require.Equal(t, []int{4, 0}, rm.fieldIndices["Nested.Line"])
+		require.Equal(t, []int{4, 2}, rm.fieldIndices["Nested.Bar"])
+
+		om := m.Mappings()
+		require.Len(t, om, 2)
+		require.Equal(t, OverrideMapping{FieldName: "Foo", CsvFieldIndex: 1}, om[0])
+		require.Equal(t, OverrideMapping{FieldName: "Nested.Bar", CsvFieldName: "bar"}, om[1])
+
+		require.NotPanics(t, func() {
+			_ = MustNewMapper[testStruct]()
+		})
+	})
+	t.Run("Unmarshalable Nested struct", func(t *testing.T) {
+		type testStruct struct {
+			Nested Unmarshalable `csv:"nested"`
+			Foo    string
+		}
+		m, err := NewMapper[testStruct]()
+		require.NoError(t, err)
+		require.NotNil(t, m)
+		rm, ok := m.(*mapper[testStruct])
+		require.True(t, ok)
+		require.Nil(t, rm.lineMapper)
+		require.Nil(t, rm.rawMapper)
+		require.Nil(t, rm.rawDataMapper)
+		require.Len(t, rm.fieldMappings, 2)
+		require.Equal(t, 1, rm.fieldMappings["Foo"])
+		require.Equal(t, "nested", rm.fieldMappings["Nested"])
+		require.Len(t, rm.fieldIndices, 2)
+		require.Equal(t, []int{1}, rm.fieldIndices["Foo"])
+		require.Equal(t, []int{0}, rm.fieldIndices["Nested"])
+
+		om := m.Mappings()
+		require.Len(t, om, 2)
+		require.Equal(t, OverrideMapping{FieldName: "Nested", CsvFieldName: "nested"}, om[0])
+		require.Equal(t, OverrideMapping{FieldName: "Foo", CsvFieldIndex: 1}, om[1])
 
 		require.NotPanics(t, func() {
 			_ = MustNewMapper[testStruct]()
@@ -165,17 +250,17 @@ func TestNewMapper_Errors(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid csv field index")
 	})
-	t.Run("Unsupported struct field type (by index)", func(t *testing.T) {
+	t.Run("Unsupported nested struct with csv tag", func(t *testing.T) {
 		type testStruct struct {
 			Foo struct{} `csv:"[1]"`
 		}
 		_, err := NewMapper[testStruct]()
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "struct field unsupported type:")
+		require.Contains(t, err.Error(), "nested struct field cannot have")
 	})
 	t.Run("Unsupported struct field type (by implied index)", func(t *testing.T) {
 		type testStruct struct {
-			Foo struct{}
+			Foo []struct{}
 		}
 		_, err := NewMapper[testStruct]()
 		require.Error(t, err)
@@ -183,7 +268,27 @@ func TestNewMapper_Errors(t *testing.T) {
 	})
 	t.Run("Unsupported struct field type (by name)", func(t *testing.T) {
 		type testStruct struct {
-			Foo struct{} `csv:"Foo"`
+			Foo []struct{} `csv:"Foo"`
+		}
+		_, err := NewMapper[testStruct]()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "struct field unsupported type:")
+	})
+	t.Run("Nested struct with bad field type (by implied index)", func(t *testing.T) {
+		type testStruct struct {
+			Foo struct {
+				Bar []struct{}
+			}
+		}
+		_, err := NewMapper[testStruct]()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "struct field unsupported type:")
+	})
+	t.Run("Nested struct with bad field type (by specified index)", func(t *testing.T) {
+		type testStruct struct {
+			Foo struct {
+				Bar []struct{} `csv:"[1]"`
+			}
 		}
 		_, err := NewMapper[testStruct]()
 		require.Error(t, err)
@@ -232,8 +337,8 @@ func TestMapper_Adapt(t *testing.T) {
 		RawData    []byte   `csv:"[rawData]"`
 		unexported string
 		Foo        string
-		Baz        string   `csv:"[2]"`
-		BadType    struct{} `csv:"-"`
+		Baz        string    `csv:"[2]"`
+		BadType    [3]string `csv:"-"`
 		Embedded
 	}
 	m, err := NewMapper[testStruct]()

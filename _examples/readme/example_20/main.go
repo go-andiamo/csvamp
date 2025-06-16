@@ -10,22 +10,16 @@ type Record struct {
 	FirstName string
 	LastName  string
 	Age       int
-	Address   Address
-}
-
-type Address struct {
-	Street string
-	Town   string
-	County string
+	Address   []string
 }
 
 var mapper = csvamp.MustNewMapper[Record]()
 
 func main() {
-	const data = `First name,Last name,Age,Street,Town,County
-Frodo,Baggins,50,1 Bagshot Row,Hobbiton,The Shire
-Samwise,Gamgee,38,2 Bagshot Row,Hobbiton,The Shire
-Aragorn,Elessar,87,Royal Quarters,The Citadel,Minas Tirith`
+	const data = `First name,Last name,Age,Address
+Frodo,Baggins,50,"1 Bagshot Row,Hobbiton,The Shire"
+Samwise,Gamgee,38,"2 Bagshot Row,Hobbiton,The Shire"
+Aragorn,Elessar,87,"Royal Quarters,The Citadel,Minas Tirith"`
 
 	r := mapper.Reader(strings.NewReader(data), nil)
 	recs, err := r.ReadAll()

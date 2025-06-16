@@ -14,18 +14,29 @@ type Record struct {
 }
 
 type Address struct {
-	Street string
-	Town   string
-	County string
+	Lines []string
+}
+
+func (a *Address) UnmarshalCSV(val string, record []string) error {
+	if val != "" {
+		a.Lines = strings.Split(val, "\n")
+	}
+	return nil
 }
 
 var mapper = csvamp.MustNewMapper[Record]()
 
 func main() {
-	const data = `First name,Last name,Age,Street,Town,County
-Frodo,Baggins,50,1 Bagshot Row,Hobbiton,The Shire
-Samwise,Gamgee,38,2 Bagshot Row,Hobbiton,The Shire
-Aragorn,Elessar,87,Royal Quarters,The Citadel,Minas Tirith`
+	const data = `First name,Last name,Age,Address
+Frodo,Baggins,50,"1 Bagshot Row
+Hobbiton
+The Shire"
+Samwise,Gamgee,38,"2 Bagshot Row
+Hobbiton
+The Shire"
+Aragorn,Elessar,87,"Royal Quarters
+The Citadel
+Minas Tirith"`
 
 	r := mapper.Reader(strings.NewReader(data), nil)
 	recs, err := r.ReadAll()

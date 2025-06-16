@@ -15,12 +15,12 @@ Read CSVs directly into structs.
 - Support for common field types: `bool`,`int`,`int8`,`int16`,`int32`,`int64`,`uint`,`uint8`,`uint16`,`uint32`,`uint64`,`float32`,`float64`,`string`
   - and pointers to those types
   - quoted detection on string pointers
-- Support for additional types - when they implement either `csvamp.CsvUnmarshaler` or `encoding.TextUnmarshaler`
-- Support for embedded structs (but not nested structs)
+- Support for additional types - when they implement `csvamp.CsvUnmarshaler`, `csvamp.CsvQuotedUnmarshaler` or `encoding.TextUnmarshaler`
+- Support for embedded structs and nested structs
 - Map struct fields to CSV field index or header name (using `csv` tag)
 - Adaptable to varying CSVs
-- Post processor option for validation or finalising struct
-- Optional error handler for tracking errors without halting read
+- Post processor option for validating and/or finalising struct
+- Optional error handler for tracking errors without halting reads
 
 ---
 
@@ -804,5 +804,190 @@ func main() {
 ```
 
 [try on go-playground](https://go.dev/play/p/AIbfIS90PUv)
+
+</details><br>
+
+<details>
+    <summary><strong>17. Nested structs</strong></summary>
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/go-andiamo/csvamp"
+    "strings"
+)
+
+type Record struct {
+    FirstName string
+    LastName  string
+    Age       int
+    Address   Address
+}
+
+type Address struct {
+    Street string
+    Town   string
+    County string
+}
+
+var mapper = csvamp.MustNewMapper[Record]()
+
+func main() {
+    const data = `First name,Last name,Age,Street,Town,County
+Frodo,Baggins,50,1 Bagshot Row,Hobbiton,The Shire
+Samwise,Gamgee,38,2 Bagshot Row,Hobbiton,The Shire
+Aragorn,Elessar,87,Royal Quarters,The Citadel,Minas Tirith`
+
+    r := mapper.Reader(strings.NewReader(data), nil)
+    recs, err := r.ReadAll()
+    if err != nil {
+        panic(err)
+    }
+    fmt.Printf("%+v\n", recs)
+}
+```
+
+</details><br>
+
+<details>
+    <summary><strong>18. Embedded structs</strong></summary>
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/go-andiamo/csvamp"
+    "strings"
+)
+
+type Record struct {
+    FirstName string
+    LastName  string
+    Age       int
+    Address
+}
+
+type Address struct {
+    Street string
+    Town   string
+    County string
+}
+
+var mapper = csvamp.MustNewMapper[Record]()
+
+func main() {
+    const data = `First name,Last name,Age,Street,Town,County
+Frodo,Baggins,50,1 Bagshot Row,Hobbiton,The Shire
+Samwise,Gamgee,38,2 Bagshot Row,Hobbiton,The Shire
+Aragorn,Elessar,87,Royal Quarters,The Citadel,Minas Tirith`
+
+    r := mapper.Reader(strings.NewReader(data), nil)
+    recs, err := r.ReadAll()
+    if err != nil {
+        panic(err)
+    }
+    fmt.Printf("%+v\n", recs)
+}
+```
+
+</details><br>
+
+<details>
+    <summary><strong>19. Nested structs with unmarshalling</strong></summary>
+
+Sometimes, you may want a nested struct to dissect a single csv field.  If the nested struct implements `CsvUnmarshaler`, `CsvQuotedUnmarshaler` or `encoding.TextUnmarshaler` interface, the struct field is treated as mapped to a single csv field...
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/go-andiamo/csvamp"
+    "strings"
+)
+
+type Record struct {
+    FirstName string
+    LastName  string
+    Age       int
+    Address   Address
+}
+
+type Address struct {
+    Lines []string
+}
+
+func (a *Address) UnmarshalCSV(val string, record []string) error {
+    if val != "" {
+        a.Lines = strings.Split(val, "\n")
+    }
+    return nil
+}
+
+var mapper = csvamp.MustNewMapper[Record]()
+
+func main() {
+    const data = `First name,Last name,Age,Address
+Frodo,Baggins,50,"1 Bagshot Row
+Hobbiton
+The Shire"
+Samwise,Gamgee,38,"2 Bagshot Row
+Hobbiton
+The Shire"
+Aragorn,Elessar,87,"Royal Quarters
+The Citadel
+Minas Tirith"`
+
+    r := mapper.Reader(strings.NewReader(data), nil)
+    recs, err := r.ReadAll()
+    if err != nil {
+        panic(err)
+    }
+    fmt.Printf("%+v\n", recs)
+}
+```
+
+</details><br>
+
+<details>
+    <summary><strong>20. Special handling of <code>[]string</code> fields</strong></summary>
+
+csvamp has special handling of `[]string` fields - it treats the quoted csv field as comma separated...
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/go-andiamo/csvamp"
+    "strings"
+)
+
+type Record struct {
+    FirstName string
+    LastName  string
+    Age       int
+    Address   []string
+}
+
+var mapper = csvamp.MustNewMapper[Record]()
+
+func main() {
+    const data = `First name,Last name,Age,Address
+Frodo,Baggins,50,"1 Bagshot Row,Hobbiton,The Shire"
+Samwise,Gamgee,38,"2 Bagshot Row,Hobbiton,The Shire"
+Aragorn,Elessar,87,"Royal Quarters,The Citadel,Minas Tirith"`
+
+    r := mapper.Reader(strings.NewReader(data), nil)
+    recs, err := r.ReadAll()
+    if err != nil {
+        panic(err)
+    }
+    fmt.Printf("%+v\n", recs)
+}
+```
 
 </details><br>

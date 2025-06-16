@@ -233,32 +233,43 @@ func (m *mapper[T]) mapStruct() error {
 	m.fieldMappings = make(map[string]any)
 	m.fieldIndices = make(map[string][]int)
 	var t T
-	to := reflect.TypeOf(t)
-	if to.Kind() != reflect.Struct {
+	rt := reflect.TypeOf(t)
+	if rt.Kind() != reflect.Struct {
 		return fmt.Errorf("expected a struct but got %T", t)
 	}
-	return m.visitStructFields(to, nil)
+	return m.visitStructFields(rt, nil, nil)
 }
 
-func (m *mapper[T]) visitStructFields(to reflect.Type, fieldPath []int) (err error) {
-	for i := 0; i < to.NumField(); i++ {
-		fld := to.Field(i)
+func (m *mapper[T]) visitStructFields(rt reflect.Type, fieldPath []int, namePath []string) (err error) {
+	for i := 0; i < rt.NumField(); i++ {
+		fld := rt.Field(i)
 		if !fld.IsExported() {
 			continue
 		}
 		currentPath := append(fieldPath, i)
-		if fld.Anonymous && fld.Type.Kind() == reflect.Struct {
-			if err = m.visitStructFields(fld.Type, currentPath); err != nil {
-				return err
+		if fld.Type.Kind() == reflect.Struct {
+			if fld.Anonymous {
+				if err = m.visitStructFields(fld.Type, currentPath, namePath); err != nil {
+					return err
+				}
+				continue
+			} else if !isUnmarshalerType(fld.Type) {
+				if _, ok := fld.Tag.Lookup(csvTagName); ok {
+					return fmt.Errorf("nested struct field cannot have %q tag", csvTagName)
+				}
+				if err = m.visitStructFields(fld.Type, currentPath, append(namePath, fld.Name)); err != nil {
+					return err
+				}
+				continue
 			}
-			continue
 		}
-		m.fieldIndices[fld.Name] = append([]int{}, currentPath...)
+		fldName := strings.Join(append(namePath, fld.Name), ".")
+		m.fieldIndices[fldName] = append([]int{}, currentPath...)
 		if tag, ok := fld.Tag.Lookup(csvTagName); ok {
 			switch tag {
 			case csvTagLine:
 				if fld.Type.Kind() != reflect.Int {
-					return fmt.Errorf("field with %q expected to be int (field name: %q)", csvTagLine, fld.Name)
+					return fmt.Errorf("field with %q expected to be int (field name: %q)", csvTagLine, fldName)
 				}
 				m.lineMapper = func(t *T, r *csv.Reader) {
 					ln, _ := r.FieldPos(1)
@@ -266,7 +277,7 @@ func (m *mapper[T]) visitStructFields(to reflect.Type, fieldPath []int) (err err
 				}
 			case csvTagRaw:
 				if fld.Type.Kind() != reflect.Slice || fld.Type.Elem().Kind() != reflect.String {
-					return fmt.Errorf("field with %q expected to be slice of strings (field name: %q)", csvTagRaw, fld.Name)
+					return fmt.Errorf("field with %q expected to be slice of strings (field name: %q)", csvTagRaw, fldName)
 				}
 				m.rawMapper = func(t *T, r []string) {
 					reflect.ValueOf(t).Elem().FieldByIndex(currentPath).Set(reflect.ValueOf(r))
@@ -281,7 +292,7 @@ func (m *mapper[T]) visitStructFields(to reflect.Type, fieldPath []int) (err err
 						reflect.ValueOf(t).Elem().FieldByIndex(currentPath).SetString(string(r))
 					}
 				} else {
-					return fmt.Errorf("field with %q expected to be slice of bytes or string (field name: %q)", csvTagRawData, fld.Name)
+					return fmt.Errorf("field with %q expected to be slice of bytes or string (field name: %q)", csvTagRawData, fldName)
 				}
 			default:
 				if strings.HasPrefix(tag, "[") && strings.HasSuffix(tag, "]") {
@@ -289,33 +300,33 @@ func (m *mapper[T]) visitStructFields(to reflect.Type, fieldPath []int) (err err
 					tag = tag[1 : len(tag)-1]
 					if idx, err := strconv.Atoi(tag); err == nil && idx > 0 {
 						if _, exists := m.csvFieldIndices[idx]; exists {
-							return fmt.Errorf("field with csv index %d already mapped  (field name: %q)", idx, fld.Name)
+							return fmt.Errorf("field with csv index %d already mapped  (field name: %q)", idx, fldName)
 						}
 						if m.csvFieldIndices[idx], err = buildSetter[T](currentPath, fld); err != nil {
 							return err
 						}
-						m.fieldMappings[fld.Name] = idx
+						m.fieldMappings[fldName] = idx
 						// following fields follow this index
 						m.fieldIndex = idx + 1
 					} else {
-						return fmt.Errorf("invalid csv field index [%s] (field name: %q)", tag, fld.Name)
+						return fmt.Errorf("invalid csv field index [%s] (field name: %q)", tag, fldName)
 					}
 				} else if tag != "-" && tag != "" {
 					// specified by name
 					if _, exists := m.csvFieldNames[tag]; exists {
-						return fmt.Errorf("field with csv name %q already mapped  (field name: %q)", tag, fld.Name)
+						return fmt.Errorf("field with csv name %q already mapped  (field name: %q)", tag, fldName)
 					}
 					if m.csvFieldNames[tag], err = buildSetter[T](currentPath, fld); err != nil {
 						return err
 					}
-					m.fieldMappings[fld.Name] = tag
+					m.fieldMappings[fldName] = tag
 				}
 			}
 		} else {
 			if m.csvFieldIndices[m.fieldIndex], err = buildSetter[T](currentPath, fld); err != nil {
 				return err
 			}
-			m.fieldMappings[fld.Name] = m.fieldIndex
+			m.fieldMappings[fldName] = m.fieldIndex
 			m.fieldIndex++
 		}
 	}

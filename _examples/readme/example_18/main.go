@@ -10,7 +10,7 @@ type Record struct {
 	FirstName string
 	LastName  string
 	Age       int
-	Address   Address
+	Address
 }
 
 type Address struct {

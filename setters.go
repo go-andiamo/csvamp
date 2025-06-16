@@ -8,18 +8,12 @@ import (
 	"strings"
 )
 
-var unmarshalerCsvType = reflect.TypeOf((*CsvUnmarshaler)(nil)).Elem()
-
-var unmarshalerQuotedCsvType = reflect.TypeOf((*CsvQuotedUnmarshaler)(nil)).Elem()
-
-var unmarshalerTextType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
-
 func buildSetter[T any](currentPath []int, fld reflect.StructField) (func(t *T, val string, quoted bool, defEmpties bool, record []string) error, error) {
 	fk := fld.Type.Kind()
 	if fk == reflect.Ptr {
 		return buildPtrSetter[T](currentPath, fld)
 	}
-	if reflect.PointerTo(fld.Type).Implements(unmarshalerCsvType) {
+	if isUnmarshalerCsvType(fld.Type) {
 		return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
 			v := reflect.ValueOf(t).Elem().FieldByIndex(currentPath)
 			// create pointer to the field...
@@ -33,7 +27,7 @@ func buildSetter[T any](currentPath []int, fld reflect.StructField) (func(t *T, 
 			v.Set(ptr.Elem())
 			return nil
 		}, nil
-	} else if reflect.PointerTo(fld.Type).Implements(unmarshalerQuotedCsvType) {
+	} else if isUnmarshalerQuotedCsvType(fld.Type) {
 		return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
 			v := reflect.ValueOf(t).Elem().FieldByIndex(currentPath)
 			// create pointer to the field...
@@ -47,7 +41,7 @@ func buildSetter[T any](currentPath []int, fld reflect.StructField) (func(t *T, 
 			v.Set(ptr.Elem())
 			return nil
 		}, nil
-	} else if reflect.PointerTo(fld.Type).Implements(unmarshalerTextType) {
+	} else if isUnmarshalerTextType(fld.Type) {
 		return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
 			v := reflect.ValueOf(t).Elem().FieldByIndex(currentPath)
 			// create pointer to the field...
@@ -178,7 +172,7 @@ func setterSliceString[T any](currentPath []int) func(t *T, val string, quoted b
 }
 
 func buildPtrSetter[T any](currentPath []int, fld reflect.StructField) (func(t *T, val string, quoted bool, defEmpties bool, record []string) error, error) {
-	if fld.Type.Implements(unmarshalerCsvType) {
+	if isUnmarshalerCsvType(fld.Type) {
 		return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
 			v := reflect.ValueOf(t).Elem().FieldByIndex(currentPath)
 			if val == "" && !quoted {
@@ -191,7 +185,7 @@ func buildPtrSetter[T any](currentPath []int, fld reflect.StructField) (func(t *
 			u := v.Interface().(CsvUnmarshaler)
 			return u.UnmarshalCSV(val, record)
 		}, nil
-	} else if fld.Type.Implements(unmarshalerQuotedCsvType) {
+	} else if isUnmarshalerQuotedCsvType(fld.Type) {
 		return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
 			v := reflect.ValueOf(t).Elem().FieldByIndex(currentPath)
 			if val == "" && !quoted {
@@ -204,7 +198,7 @@ func buildPtrSetter[T any](currentPath []int, fld reflect.StructField) (func(t *
 			u := v.Interface().(CsvQuotedUnmarshaler)
 			return u.UnmarshalQuotedCSV(val, quoted, record)
 		}, nil
-	} else if fld.Type.Implements(unmarshalerTextType) {
+	} else if isUnmarshalerTextType(fld.Type) {
 		return func(t *T, val string, quoted bool, defEmpties bool, record []string) error {
 			v := reflect.ValueOf(t).Elem().FieldByIndex(currentPath)
 			if val == "" && !quoted {
@@ -344,4 +338,38 @@ func setterPtrString[T any](currentPath []int) func(t *T, val string, quoted boo
 		v.Set(ptr)
 		return nil
 	}
+}
+
+var unmarshalerCsvType = reflect.TypeOf((*CsvUnmarshaler)(nil)).Elem()
+
+var unmarshalerQuotedCsvType = reflect.TypeOf((*CsvQuotedUnmarshaler)(nil)).Elem()
+
+var unmarshalerTextType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
+
+func isUnmarshalerCsvType(t reflect.Type) bool {
+	if t.Kind() != reflect.Ptr {
+		return reflect.PointerTo(t).Implements(unmarshalerCsvType)
+	} else {
+		return t.Implements(unmarshalerCsvType)
+	}
+}
+
+func isUnmarshalerQuotedCsvType(t reflect.Type) bool {
+	if t.Kind() != reflect.Ptr {
+		return reflect.PointerTo(t).Implements(unmarshalerQuotedCsvType)
+	} else {
+		return t.Implements(unmarshalerQuotedCsvType)
+	}
+}
+
+func isUnmarshalerTextType(t reflect.Type) bool {
+	if t.Kind() != reflect.Ptr {
+		return reflect.PointerTo(t).Implements(unmarshalerTextType)
+	} else {
+		return t.Implements(unmarshalerTextType)
+	}
+}
+
+func isUnmarshalerType(t reflect.Type) bool {
+	return isUnmarshalerCsvType(t) || isUnmarshalerQuotedCsvType(t) || isUnmarshalerTextType(t)
 }

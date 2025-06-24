@@ -175,6 +175,8 @@ func NewReader(r io.Reader, options ...any) *Reader {
 			result.TrimLeadingSpace = bool(opt)
 		case NoHeader:
 			result.NoHeader = bool(opt)
+		case ReuseRecord:
+			result.ReuseRecord = bool(opt)
 		}
 	}
 	return result
@@ -198,12 +200,13 @@ func (r *Reader) Read() (record []string, err error) {
 		record, err = r.readRecord(nil)
 	}
 	if readHeader {
-		r.header = record
 		r.headerRead = true
 		if r.ReuseRecord {
+			r.header = append([]string(nil), record...)
 			record, err = r.readRecord(r.lastRecord)
 			r.lastRecord = record
 		} else {
+			r.header = record
 			record, err = r.readRecord(nil)
 		}
 	}

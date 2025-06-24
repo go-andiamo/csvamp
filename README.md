@@ -849,6 +849,8 @@ Aragorn,Elessar,87,Royal Quarters,The Citadel,Minas Tirith`
 }
 ```
 
+[try on go-playground](https://go.dev/play/p/qgPT2hONuZ3)
+
 </details><br>
 
 <details>
@@ -892,6 +894,8 @@ Aragorn,Elessar,87,Royal Quarters,The Citadel,Minas Tirith`
     fmt.Printf("%+v\n", recs)
 }
 ```
+
+[try on go-playground](https://go.dev/play/p/uzwjWlb7ZdA)
 
 </details><br>
 
@@ -950,6 +954,8 @@ Minas Tirith"`
 }
 ```
 
+[try on go-playground](https://go.dev/play/p/PhysaOsaro0)
+
 </details><br>
 
 <details>
@@ -989,5 +995,7 @@ Aragorn,Elessar,87,"Royal Quarters,The Citadel,Minas Tirith"`
     fmt.Printf("%+v\n", recs)
 }
 ```
+
+[try on go-playground](https://go.dev/play/p/1oFekDnz1Lc)
 
 </details><br>

@@ -17,3 +17,5 @@ type TrimLeadingSpace bool
 
 // NoHeader is an option that can be used for NewReader to set Reader.NoHeader
 type NoHeader bool
+
+type ReuseRecord bool

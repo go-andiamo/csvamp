@@ -227,16 +227,16 @@ func cloneMap[K comparable, V any](original map[K]V) map[K]V {
 }
 
 func (m *mapper[T]) mapStruct() error {
-	m.fieldIndex = 1
-	m.csvFieldNames = make(map[string]func(t *T, val string, quoted bool, defEmpties bool, record []string) error)
-	m.csvFieldIndices = make(map[int]func(t *T, val string, quoted bool, defEmpties bool, record []string) error)
-	m.fieldMappings = make(map[string]any)
-	m.fieldIndices = make(map[string][]int)
 	var t T
 	rt := reflect.TypeOf(t)
 	if rt.Kind() != reflect.Struct {
 		return fmt.Errorf("expected a struct but got %T", t)
 	}
+	m.fieldIndex = 1
+	m.csvFieldNames = make(map[string]func(t *T, val string, quoted bool, defEmpties bool, record []string) error)
+	m.csvFieldIndices = make(map[int]func(t *T, val string, quoted bool, defEmpties bool, record []string) error)
+	m.fieldMappings = make(map[string]any)
+	m.fieldIndices = make(map[string][]int)
 	return m.visitStructFields(rt, nil, nil)
 }
 
@@ -272,7 +272,7 @@ func (m *mapper[T]) visitStructFields(rt reflect.Type, fieldPath []int, namePath
 					return fmt.Errorf("field with %q expected to be int (field name: %q)", csvTagLine, fldName)
 				}
 				m.lineMapper = func(t *T, r *csv.Reader) {
-					ln, _ := r.FieldPos(1)
+					ln := r.CurrentLine()
 					reflect.ValueOf(t).Elem().FieldByIndex(currentPath).SetInt(int64(ln))
 				}
 			case csvTagRaw:

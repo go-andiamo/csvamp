@@ -754,7 +754,8 @@ func TestNewReader_WithOptions(t *testing.T) {
 		FieldsPerRecord(-1),
 		LazyQuotes(true),
 		TrimLeadingSpace(true),
-		NoHeader(true))
+		NoHeader(true),
+		ReuseRecord(true))
 	if r.Comma != '.' || r.Comment != '$' || r.FieldsPerRecord != -1 || !r.LazyQuotes || !r.TrimLeadingSpace || !r.NoHeader {
 		t.Fatal("Options not set")
 	}

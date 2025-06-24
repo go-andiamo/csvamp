@@ -1,6 +1,7 @@
 package csvamp
 
 import (
+	"errors"
 	"fmt"
 	"github.com/go-andiamo/csvamp/csv"
 	"io"
@@ -64,16 +65,12 @@ func (rc *readerContext[T]) Read() (t T, err error) {
 			}
 		}
 		if len(rc.mapper.csvFieldNames) > 0 {
-			var headers map[string]int
-			if headers, err = rc.getCsvHeaders(); err == nil {
+			if err = rc.checkCsvHeaders(); err == nil {
+				l := len(record)
 				for name, fn := range rc.mapper.csvFieldNames {
-					if idx, ok := headers[name]; ok {
-						if idx >= 0 && idx < len(record) {
-							if err = fn(&t, record[idx], rc.reader.FieldQuoted(idx), rc.mapper.defaultEmptyValues, record); err != nil {
-								return t, err
-							}
-						} else {
-							return t, fmt.Errorf("csv field index %d (for header %q) out of range in record", idx+1, name)
+					if idx, ok := rc.csvHeaders[name]; ok && idx >= 0 && idx < l {
+						if err = fn(&t, record[idx], rc.reader.FieldQuoted(idx), rc.mapper.defaultEmptyValues, record); err != nil {
+							return t, err
 						}
 					} else if !rc.mapper.ignoreUnknownFieldNames {
 						return t, fmt.Errorf("csv header %q not present", name)
@@ -81,7 +78,7 @@ func (rc *readerContext[T]) Read() (t T, err error) {
 				}
 			}
 		}
-		if rc.postProcessor != nil {
+		if rc.postProcessor != nil && err == nil {
 			err = rc.postProcessor(&t)
 		}
 	}
@@ -139,7 +136,7 @@ func (rc *readerContext[T]) SupplyHeaders(headers []string) ReaderContext[T] {
 	return rc
 }
 
-func (rc *readerContext[T]) getCsvHeaders() (map[string]int, error) {
+func (rc *readerContext[T]) checkCsvHeaders() error {
 	if !rc.csvHeadersRead {
 		rc.csvHeadersRead = true
 		if hdrs, has := rc.reader.Header(); has {
@@ -148,10 +145,10 @@ func (rc *readerContext[T]) getCsvHeaders() (map[string]int, error) {
 				rc.csvHeaders[h] = i
 			}
 		} else {
-			rc.csvHeadersErr = fmt.Errorf("csv headers not present")
+			rc.csvHeadersErr = errors.New("csv headers not present")
 		}
 	}
-	return rc.csvHeaders, rc.csvHeadersErr
+	return rc.csvHeadersErr
 }
 
 func (rc *readerContext[T]) handleError(err error) error {

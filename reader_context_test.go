@@ -163,8 +163,8 @@ Aaa,"Bbb"`
 
 		_, err = ctx.Read()
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "csv field index ")
-		require.Contains(t, err.Error(), " out of range in record")
+		require.Contains(t, err.Error(), "csv header ")
+		require.Contains(t, err.Error(), " not present")
 	})
 }
 

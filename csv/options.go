@@ -18,4 +18,8 @@ type TrimLeadingSpace bool
 // NoHeader is an option that can be used for NewReader to set Reader.NoHeader
 type NoHeader bool
 
+// ReuseRecord is an option that can be used for NewReader to set Reader.ReuseRecord
 type ReuseRecord bool
+
+// NoSkipEmptyLines is an option that can be used for NewReader to set Reader.NoSkipEmptyLines
+type NoSkipEmptyLines bool

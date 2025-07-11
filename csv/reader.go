@@ -118,6 +118,12 @@ type Reader struct {
 	// NoHeader indicates that the CSV being read does not have a header
 	NoHeader bool
 
+	// if NoSkipEmptyLines is true, empty lines are not skipped
+	//
+	// this solves a problem in stdlib reader - where if there's only one header field,
+	// a blank line means the record has one empty field
+	NoSkipEmptyLines bool
+
 	// header is the CSV header (automatically read and set - unless NoHeader is set to true)
 	header []string
 	// headerRead flags when the header has already been read
@@ -177,6 +183,8 @@ func NewReader(r io.Reader, options ...any) *Reader {
 			result.NoHeader = bool(opt)
 		case ReuseRecord:
 			result.ReuseRecord = bool(opt)
+		case NoSkipEmptyLines:
+			result.NoSkipEmptyLines = bool(opt)
 		}
 	}
 	return result
@@ -328,7 +336,7 @@ func (r *Reader) readRecord(dst []string) ([]string, error) {
 			line = nil
 			continue // Skip comment lines
 		}
-		if errRead == nil && len(line) == lengthNL(line) {
+		if errRead == nil && len(line) == lengthNL(line) && !r.NoSkipEmptyLines {
 			line = nil
 			continue // Skip empty lines
 		}

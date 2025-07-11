@@ -8,6 +8,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
 	"reflect"
@@ -755,8 +756,28 @@ func TestNewReader_WithOptions(t *testing.T) {
 		LazyQuotes(true),
 		TrimLeadingSpace(true),
 		NoHeader(true),
-		ReuseRecord(true))
-	if r.Comma != '.' || r.Comment != '$' || r.FieldsPerRecord != -1 || !r.LazyQuotes || !r.TrimLeadingSpace || !r.NoHeader {
-		t.Fatal("Options not set")
-	}
+		ReuseRecord(true),
+		NoSkipEmptyLines(true))
+	assert.Equal(t, '.', r.Comma)
+	assert.Equal(t, '$', r.Comment)
+	assert.Equal(t, -1, r.FieldsPerRecord)
+	assert.Equal(t, true, r.LazyQuotes)
+	assert.Equal(t, true, r.TrimLeadingSpace)
+	assert.Equal(t, true, r.NoHeader)
+	assert.Equal(t, true, r.ReuseRecord)
+	assert.Equal(t, true, r.NoSkipEmptyLines)
+}
+
+func TestReader_NoSkipEmptyLines(t *testing.T) {
+	const data = `Foo
+
+`
+	r := NewReader(strings.NewReader(data))
+	_, err := r.Read()
+	require.Error(t, err)
+
+	r = NewReader(strings.NewReader(data), NoSkipEmptyLines(true))
+	rec, err := r.Read()
+	require.NoError(t, err)
+	_ = rec
 }

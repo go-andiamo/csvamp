@@ -70,6 +70,7 @@ type mapper[T any] struct {
 	csvFieldNames           map[string]func(t *T, val string, quoted bool, defEmpties bool, record []string) error
 	fieldMappings           map[string]any // int value is csv index, string value is csv header
 	fieldIndices            map[string][]int
+	postProcessor           func(row *T) error
 	fieldIndex              int // used only while inspecting struct fields
 }
 
@@ -81,6 +82,8 @@ func (m *mapper[T]) setOptions(options ...any) error {
 				m.ignoreUnknownFieldNames = bool(option)
 			case DefaultEmptyValues:
 				m.defaultEmptyValues = bool(option)
+			case func(*T) error:
+				m.postProcessor = option
 			default:
 				return fmt.Errorf("unknown option type: %T", option)
 			}
@@ -89,11 +92,14 @@ func (m *mapper[T]) setOptions(options ...any) error {
 	return nil
 }
 
-func (m *mapper[T]) Reader(r io.Reader, postProcessor func(row *T) error, csvOptions ...any) ReaderContext[T] {
-	return m.ReaderContext(csv.NewReader(r, csvOptions...), postProcessor)
+func (m *mapper[T]) Reader(r io.Reader, postProcessor func(row *T) error, options ...any) ReaderContext[T] {
+	return m.ReaderContext(csv.NewReader(r, options...), postProcessor)
 }
 
 func (m *mapper[T]) ReaderContext(r *csv.Reader, postProcessor func(row *T) error) ReaderContext[T] {
+	if postProcessor == nil {
+		postProcessor = m.postProcessor
+	}
 	return &readerContext[T]{
 		reader:        r,
 		mapper:        m,

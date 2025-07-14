@@ -19,6 +19,10 @@ type ReaderContext[T any] interface {
 	//
 	// Iteration continues until the end of the CSV or when the provided function returns false or an error
 	Iterate(fn func(T) (bool, error)) error
+	// Iterator returns an iterator that can be ranged over
+	//
+	// range iteration stops when an error is encountered - unless an ErrorHandler is provided using WithErrorHandler
+	Iterator() func(func(int, T) bool)
 	// WithErrorHandler sets the error handler - which can be used to track errors during ReadAll and Iterate
 	//
 	// Setting an error handler means that errors are reported but don't necessarily halt further reading
@@ -119,6 +123,27 @@ func (rc *readerContext[T]) Iterate(fn func(T) (bool, error)) (err error) {
 		err = rc.handleError(err)
 	}
 	return err
+}
+
+func (rc *readerContext[T]) Iterator() func(func(int, T) bool) {
+	i := 0
+	return func(yield func(int, T) bool) {
+		var err error
+		for err == nil {
+			var t T
+			t, err = rc.Read()
+			if err != nil {
+				if err == io.EOF {
+					return
+				}
+				err = rc.handleError(err)
+				i++
+				continue
+			}
+			yield(i, t)
+			i++
+		}
+	}
 }
 
 func (rc *readerContext[T]) WithErrorHandler(eh ErrorHandler) ReaderContext[T] {

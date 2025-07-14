@@ -341,6 +341,105 @@ Ddd,Eee,Fff`
 	require.Equal(t, 3, eh.lines[1])
 }
 
+func TestReaderContext_Iterator(t *testing.T) {
+	type testStruct struct {
+		Line int `csv:"[line]"`
+		Foo  string
+		Bar  string
+		Baz  string
+	}
+	m, err := NewMapper[testStruct]()
+	require.NoError(t, err)
+	require.NotNil(t, m)
+
+	const data = `Foo,Bar,Baz
+Aaa,"Bbb",Ccc
+Ddd,Eee,Fff`
+
+	ctx := m.Reader(strings.NewReader(data), nil)
+
+	result := make([]testStruct, 0)
+	nums := make([]int, 0)
+	for i, row := range ctx.Iterator() {
+		nums = append(nums, i)
+		result = append(result, row)
+	}
+	require.Len(t, result, 2)
+	require.Equal(t, 2, result[0].Line)
+	require.Equal(t, "Aaa", result[0].Foo)
+	require.Equal(t, "Bbb", result[0].Bar)
+	require.Equal(t, "Ccc", result[0].Baz)
+	require.Equal(t, 3, result[1].Line)
+	require.Equal(t, "Ddd", result[1].Foo)
+	require.Equal(t, "Eee", result[1].Bar)
+	require.Equal(t, "Fff", result[1].Baz)
+	require.Len(t, nums, 2)
+	require.Equal(t, []int{0, 1}, nums)
+}
+
+func TestReaderContext_Iterator_StopsOnError(t *testing.T) {
+	type testStruct struct {
+		Line int `csv:"[line]"`
+		Foo  string
+		Bar  int
+	}
+	m, err := NewMapper[testStruct]()
+	require.NoError(t, err)
+	require.NotNil(t, m)
+
+	const data = `Foo,Bar
+Aaa,16
+Bbb,not a number`
+
+	ctx := m.Reader(strings.NewReader(data), nil)
+
+	result := make([]testStruct, 0)
+	nums := make([]int, 0)
+	for i, row := range ctx.Iterator() {
+		nums = append(nums, i)
+		result = append(result, row)
+	}
+	require.Len(t, result, 1)
+	require.Equal(t, 2, result[0].Line)
+	require.Equal(t, "Aaa", result[0].Foo)
+	require.Equal(t, 16, result[0].Bar)
+	require.Len(t, nums, 1)
+	require.Equal(t, []int{0}, nums)
+}
+
+func TestReaderContext_Iterator_WithErrorHandler(t *testing.T) {
+	type testStruct struct {
+		Line int `csv:"[line]"`
+		Foo  string
+		Bar  int
+	}
+	m, err := NewMapper[testStruct]()
+	require.NoError(t, err)
+	require.NotNil(t, m)
+
+	const data = `Foo,Bar
+Aaa,not a number
+Bbb,16`
+
+	eh := &testErrorHandler{}
+	ctx := m.Reader(strings.NewReader(data), nil).WithErrorHandler(eh)
+
+	result := make([]testStruct, 0)
+	nums := make([]int, 0)
+	for i, row := range ctx.Iterator() {
+		nums = append(nums, i)
+		result = append(result, row)
+	}
+	require.Len(t, result, 1)
+	require.Equal(t, 3, result[0].Line)
+	require.Equal(t, "Bbb", result[0].Foo)
+	require.Equal(t, 16, result[0].Bar)
+	require.Len(t, nums, 1)
+	require.Equal(t, []int{1}, nums)
+	require.Len(t, eh.errs, 1)
+	require.Len(t, eh.lines, 1)
+}
+
 func TestReaderContext_Read_Unmarshaler(t *testing.T) {
 	t.Run("Non-Pointer", func(t *testing.T) {
 		type testStruct struct {
